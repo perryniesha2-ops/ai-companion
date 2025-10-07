@@ -1,95 +1,60 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+// app/page.tsx
+import Link from 'next/link';
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>app/page.tsx</code>.
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
+    <main className="landing-shell">
+      {/* Gradient icon badge */}
+      <div style={{ display: 'grid', placeItems: 'center' }}>
+        <div
+          aria-hidden
+          style={{
+            width: 84,
+            height: 84,
+            borderRadius: 999,
+            background: 'linear-gradient(135deg, var(--grad-from), var(--grad-to))',
+            color: '#fff',
+            display: 'grid',
+            placeItems: 'center',
+            boxShadow: '0 10px 30px rgba(124,58,237,.25)',
+            border: '6px solid #fff',
+          }}
+        >
+          <span style={{ fontSize: 30, transform: 'translateY(-1px)' }}>♡</span>
         </div>
-      </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </div>
+
+      <h1 className="hero-title">Your AI Companion</h1>
+      <p className="hero-sub">
+        An AI companion that remembers, grows with you, and helps
+        you become your best self
+      </p>
+
+      {/* Feature cards */}
+      <section className="features">
+        <div className="card center" style={{ padding: '26px 18px' }}>
+          <div className="icon" aria-hidden>🧠</div>
+          <h3 style={{ margin: '6px 0 4px' }}>Remembers Everything</h3>
+          <p className="muted">Builds genuine connection through memory</p>
+        </div>
+
+        <div className="card center" style={{ padding: '26px 18px' }}>
+          <div className="icon" aria-hidden>🌱</div>
+          <h3 style={{ margin: '6px 0 4px' }}>Helps You Grow</h3>
+          <p className="muted">Personal development through conversation</p>
+        </div>
+
+        <div className="card center" style={{ padding: '26px 18px' }}>
+          <div className="icon" aria-hidden>💛</div>
+          <h3 style={{ margin: '6px 0 4px' }}>Always There</h3>
+          <p className="muted">24/7 companionship and support</p>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <Link href="/auth/signup" className="btn-grad" style={{ fontSize: 18, padding: '14px 28px' }}>
+        Get Started Free
+      </Link>
+    </main>
   );
 }
