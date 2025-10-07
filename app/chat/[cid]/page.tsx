@@ -2,68 +2,64 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import ChatMenu from '@/components/menus/ChatMenu';
 
 type Msg = { role: 'user' | 'assistant'; content: string; created_at?: string };
 type NickRow = { nickname: string | null };
-type UsageRow = { count: number };
-
-const FREE_DAILY = 30;
 
 export default function ChatThreadPage() {
   const { cid } = useParams<{ cid: string }>();
-  const router = useRouter();
   const sb = useMemo(() => supabaseBrowser(), []);
+
   const [name, setName] = useState<string>('Companion');
-  const [used, setUsed] = useState<number>(0);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const scroller = useRef<HTMLDivElement>(null);
 
-  // Auth + header context + load history for this conversation
+  // 1) Fetch the companion nickname (same source as new-chat: profiles.nickname)
   useEffect(() => {
     (async () => {
-      const { data: { session } } = await sb.auth.getSession();
-      if (!session) {
-        router.replace(`/auth/login?next=${encodeURIComponent(`/chat/${cid}`)}`);
-        return;
-      }
       const { data: { user } } = await sb.auth.getUser();
-      if (!user) {
-        router.replace(`/auth/login?next=${encodeURIComponent(`/chat/${cid}`)}`);
-        return;
-      }
+      if (!user) return;
 
-      const today = new Date().toISOString().slice(0, 10);
-
-      const [
-        { data: prof },
-        { data: usage },
-        { data: history },
-      ] = await Promise.all([
-        sb.from('profiles').select('nickname').eq('id', user.id).maybeSingle<NickRow>(),
-        sb.from('daily_usage').select('count').eq('user_id', user.id).eq('day', today).maybeSingle<UsageRow>(),
-        sb
-          .from('messages')
-          .select('role, content, created_at')
-          .eq('user_id', user.id)
-          .eq('conversation_id', cid)
-          .order('created_at', { ascending: true }),
-      ]);
+      const { data: prof } = await sb
+        .from('profiles')
+        .select('nickname')
+        .eq('id', user.id)
+        .returns<NickRow[]>()      // help TS avoid `never`
+        .maybeSingle();
 
       setName(prof?.nickname?.trim() || 'Companion');
-      setUsed(usage?.count ?? 0);
-      setMsgs((history ?? []) as Msg[]);
     })();
-  }, [sb, router, cid]);
+  }, [sb]);
 
-  // Auto-scroll on changes
+  // 2) Load existing messages for this conversation
   useEffect(() => {
-    scroller.current?.scrollTo({ top: scroller.current.scrollHeight, behavior: 'smooth' });
+    (async () => {
+      if (!cid) return;
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) return;
+
+      const { data } = await sb
+        .from('messages')
+        .select('role, content, created_at')
+        .eq('user_id', user.id)
+        .eq('conversation_id', cid)
+        .order('created_at', { ascending: true });
+
+      setMsgs((data ?? []) as Msg[]);
+    })();
+  }, [cid, sb]);
+
+  // 3) Autoscroll when messages change
+  useEffect(() => {
+    scroller.current?.scrollTo({
+      top: scroller.current.scrollHeight,
+      behavior: 'smooth',
+    });
   }, [msgs, loading]);
 
   async function send() {
@@ -80,27 +76,19 @@ export default function ChatThreadPage() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ message: text, conversation_id: cid }),
       });
-      const data = await res.json();
+      const j = await res.json();
 
-      if (!res.ok) {
-        setMsgs((m) => [...m, { role: 'assistant', content: data.error || 'Sorry, something went wrong.' }]);
-      } else {
-        setMsgs((m) => [...m, { role: 'assistant', content: data.text }]);
-        setUsed((n) => Math.min(FREE_DAILY, n + 1));
-      }
+      setMsgs((m) => [
+        ...m,
+        {
+          role: 'assistant',
+          content: res.ok ? j.text : j.error || 'Sorry, something went wrong.',
+        },
+      ]);
     } finally {
       setLoading(false);
     }
   }
-
-  function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      send();
-    }
-  }
-
-  const left = Math.max(0, FREE_DAILY - used);
 
   return (
     <main className="chat-shell">
@@ -111,10 +99,7 @@ export default function ChatThreadPage() {
           <div className="name">{name}</div>
           <div className="status"><span className="dot" /> Online</div>
         </div>
-
-        {/* Right side controls */}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-        
           <ChatMenu />
         </div>
       </header>
@@ -135,26 +120,20 @@ export default function ChatThreadPage() {
         </div>
       </div>
 
-      {/* Footer */}
+      {/* Composer */}
       <footer className="chat-footer">
-        <div className="usage small">
-          <span>{left} messages left today</span>
-          <span className="sep">•</span>
-          <Link href="/dashboard?tab=billing">Upgrade for unlimited</Link>
-        </div>
-
         <div className="input-bar">
           <textarea
             className="input--pill"
             rows={2}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="Type a message…"
+            placeholder="Share what's on your mind…"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+            }}
           />
-          <button className="send-btn" onClick={send} disabled={loading || !input.trim()}>
-            ✈︎
-          </button>
+          <button className="send-btn" onClick={send} disabled={!input.trim() || loading}>✈︎</button>
         </div>
       </footer>
     </main>

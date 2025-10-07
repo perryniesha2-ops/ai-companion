@@ -1,51 +1,53 @@
 // lib/supabase-server.ts
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Database } from '@/types';
 import { cookies as nextCookies } from 'next/headers';
+import type { Database } from '@/types';
+
+const URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 /**
- * Synchronous creator usable only in Server Components / Route Handlers.
- * Works across Next/SSR versions where `cookies()` is typed as value or Promise.
+ * For Route Handlers & Server Actions ONLY (cookie writes allowed)
  */
-export function supabaseServer(): SupabaseClient<Database> {
-  // Coerce to a callable that returns a cookie store (not a Promise).
-  type CookieStore =
-    | ReturnType<typeof nextCookies>
-    | Awaited<ReturnType<typeof nextCookies>>;
-  const getStore = nextCookies as unknown as () => CookieStore;
-  const store = getStore() as any; // tolerate older/newer Next typings
-
-  return createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      // Supply the exact methods `@supabase/ssr` expects
-      cookies: {
-        get(name: string) {
-          try {
-            return store.get?.(name)?.value as string | undefined;
-          } catch {
-            return undefined;
-          }
-        },
-        set(name: string, value: string, options?: CookieOptions) {
-          try {
-            // Next 13/14: .set(name, value, options)
-            store.set?.(name, value, options);
-          } catch {
-            /* no-op in edge cases */
-          }
-        },
-        remove(name: string, options?: CookieOptions) {
-          try {
-            // Delete via a zero maxAge for broad compatibility
-            store.set?.(name, '', { ...(options ?? {}), maxAge: 0 });
-          } catch {
-            /* no-op */
-          }
-        },
+export function supabaseServer() {
+  const store = nextCookies(); // mutable here
+  return createServerClient<Database>(URL, ANON, {
+    cookies: {
+      get(name: string) {
+        return store.get(name)?.value;
       },
-    }
-  );
+      set(name: string, value: string, options?: CookieOptions) {
+        store.set({ name, value, ...options });
+      },
+      remove(name: string, options?: CookieOptions) {
+        store.delete({ name, ...options });
+      },
+    },
+  });
+}
+
+/**
+ * For Server Components (RSC) — read-only (NO cookie writes)
+ * Prevents the “Cookies can only be modified …” error.
+ */
+export function supabaseRSC() {
+  const store = nextCookies(); // read-only in RSC context
+  return createServerClient<Database>(URL, ANON, {
+    // Provide read-only cookie methods
+    cookies: {
+      get(name: string) {
+        return store.get(name)?.value;
+      },
+      // no-ops so Supabase doesn't crash if it tries to write
+      // (and we also disable auto refresh below)
+      set() {},
+      remove() {},
+    } as unknown as Parameters<typeof createServerClient>[2]['cookies'],
+    // Avoid refresh/write attempts in RSC
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
 }

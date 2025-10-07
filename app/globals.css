@@ -455,3 +455,67 @@ fieldset{ border:0; margin:0; padding:0 }
 .dropdown-item:hover{ background: var(--pink-50); }
 .dropdown-item.danger{ color:#b91c1c; }
 .dropdown-sep{ height:1px; background:var(--ring); margin:6px 4px; }
+
+/* Companion panel layout */
+.comp-panel .comp-header{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px;
+}
+.header-actions .btn{ white-space:nowrap; }
+
+/* Pastel stat strips (wide pills) */
+.stat-grid{ display:grid; gap:12px; margin-top:14px; }
+.info-strip{
+  border:1px solid var(--ring); border-radius:14px;
+  padding:14px; background:#fff;
+}
+.info-strip .strip-title{ font-size:12px; color:var(--muted); margin-bottom:6px; }
+.info-strip .strip-value{ font-weight:700; }
+.info--lav{ background:#f7f1ff; }   /* light lavender */
+.info--rose{ background:#fff1f5; }  /* light rose   */
+.info--blue{ background:#eef6ff; }  /* light blue   */
+@media (min-width: 800px){
+  .stat-grid{ grid-template-columns: 1fr 1fr 1fr; }
+}
+
+/* Action rows */
+.row-list .row.action{
+  border:1px solid var(--ring); background:#fff; border-radius:14px;
+  cursor:pointer; transition: transform .05s ease, box-shadow .15s ease;
+}
+.row-list .row.action:hover{ transform:translateY(-1px); box-shadow:var(--shadow-sm); }
+.icon-pill{
+  width:36px; height:36px; border-radius:10px;
+  display:grid; place-items:center; color:#fff;
+  background:linear-gradient(135deg,var(--grad-from),var(--grad-to));
+  font-size:16px;
+}
+.chevron{ font-size:20px; color:var(--muted); }
+
+
+.chip-link{
+  border:1px solid var(--ring); background:#fff; padding:8px 12px; border-radius:999px; cursor:pointer;
+}
+.chip-link:hover{ background:#fff1f5;}
+.chip-link.danger{ color:#b91c1c; }
+
+
+.btn-primary {
+  background-color:#f7f1ff; /* Primary blue color */
+  color: #7c3aed;             /* White text */
+  padding: 10px 20px;         /* Vertical and horizontal padding */
+  font-size: 16px;            /* Readable text size */
+  font-weight: 600;           /* Semi-bold font */
+  border: none;               /* No border */
+  border-radius: 5px;         /* Rounded corners */
+  cursor: pointer;            /* Pointer on hover */
+  transition: background-color 0.3s ease, transform 0.2s ease; /* Smooth hover transitions */
+  text-align: center;         /* Center text */
+  display: inline-block;      /* Inline-block to respect dimensions */
+  text-decoration: none;      /* Remove underline for links if used */
+}
+/* Hover state for button */
+.btn-primary:hover {
+  background-color: #eef6ff;; /* Darker blue on hover */
+  transform: translateY(-2px); /* Slight lift effect */
+}

@@ -1,7 +1,7 @@
 // app/dashboard/page.tsx
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { supabaseServer } from '@/lib/supabase-server';
+import { supabaseRSC } from '@/lib/supabase-server';
 import type { Database } from '@/types';
 import DashboardTabs, { OverviewData } from '@/components/dashboard/DashboardTabs';
 
@@ -69,9 +69,9 @@ export default async function DashboardPage({
 }: {
   searchParams?: { tab?: 'overview' | 'companion' | 'settings' | 'billing' };
 }) {
-  const sb = supabaseServer(); 
+const sb = supabaseRSC();
 
-   const { data: { user } } = await sb.auth.getUser();
+const { data: { user } } = await sb.auth.getUser();
   if (!user) redirect('/auth/login?next=%2Fdashboard');
 
   const { data: prof } = await sb
@@ -163,7 +163,6 @@ export default async function DashboardPage({
               <div className="muted small">{user.email}</div>
             </div>
           </div>
-          <Link href="/chat" className="btn btn--outline">Back to Chat</Link>
         </header>
 
         {/* Compact promo */}
