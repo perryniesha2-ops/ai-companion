@@ -519,3 +519,40 @@ fieldset{ border:0; margin:0; padding:0 }
   background-color: #eef6ff;; /* Darker blue on hover */
   transform: translateY(-2px); /* Slight lift effect */
 }
+
+
+/* Pills/toggles used in Settings */
+.switch{
+  width:44px;height:26px;border-radius:999px;border:1px solid var(--ring);
+  background:#e5e7eb; position:relative; cursor:pointer; transition:background .2s ease;
+}
+.switch::after{
+  content:""; position:absolute; top:2px; left:2px; width:20px; height:20px;
+  border-radius:999px; background:#fff; box-shadow:var(--shadow-sm);
+  transition:transform .2s ease;
+}
+.switch.is-on{
+  background:linear-gradient(90deg,var(--grad-from),var(--grad-to));
+}
+.switch.is-on::after{ transform:translateX(18px); }
+
+.btn-danger {background-color:#f7f1ff; /* Primary blue color */
+  color:#b91c1c;             /* White text */
+  padding: 10px 20px;         /* Vertical and horizontal padding */
+  font-size: 16px;            /* Readable text size */
+  font-weight: 600;           /* Semi-bold font */
+  border: none;               /* No border */
+  border-radius: 5px;         /* Rounded corners */
+  cursor: pointer;            /* Pointer on hover */
+  transition: background-color 0.3s ease, transform 0.2s ease; /* Smooth hover transitions */
+  text-align: center;         /* Center text */
+  display: inline-block;      /* Inline-block to respect dimensions */
+  text-decoration: none;      /* Remove underline for links if used */
+}
+.btn-danger:hover { background: rgba(239,68,68,.06); }
+
+/* optional refinements */
+.switch { width: 46px; height: 26px; border-radius: 999px; border:1px solid var(--ring); background:#eef2f7; position:relative; }
+.switch::after{ content:""; position:absolute; top:2px; left:2px; width:22px; height:22px; border-radius:999px; background:#fff; box-shadow:var(--shadow-sm); transition:transform .18s ease; }
+.switch.is-on{ background:linear-gradient(90deg, var(--grad-from), var(--grad-to)); border-color:transparent; }
+.switch.is-on::after{ transform:translateX(20px); }

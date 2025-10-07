@@ -14,3 +14,6 @@ export type Tables<T extends keyof import('./database').Database['public']['Tabl
 
 export type TablesInsert<T extends keyof import('./database').Database['public']['Tables']> =
   import('./database').Database['public']['Tables'][T]['Insert'];
+
+// convenient aliases (optional)
+export type ConversationsRow = Tables<'conversations'>;

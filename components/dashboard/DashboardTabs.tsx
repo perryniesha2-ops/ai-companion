@@ -70,8 +70,8 @@ export default function DashboardTabs({
 
       {tab === 'overview' && <OverviewPanel data={overview} />}
       {tab === 'companion' && <CompanionPanelInline data={overview} />}
-      {tab === 'settings' && <SettingsPanel email={overview.userEmail} />}
-      {tab === 'billing' && <BillingPanel isPremium={overview.isPremium} freeDaily={overview.freeDaily} used={overview.used} />}
+      {tab === 'settings' && <SettingsPanel email={overview.userEmail}  initialPrefs={{ daily_checkin: true, weekly_summary: true, milestone_celebrations: true, marketing_emails: false,}}/>}
+      {tab === 'billing' && <BillingPanel data={{used: overview.used,freeDaily: overview.freeDaily,isPremium: overview.isPremium,email: overview.userEmail,}}/>}
     </>
   );
 }

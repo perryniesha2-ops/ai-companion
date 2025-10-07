@@ -172,8 +172,7 @@ const { data: { user } } = await sb.auth.getUser();
             <p className="promo-sub">Get unlimited messages for just $9.99/month.</p>
           </div>
           <div className="promo-right">
-            <span className="chip">{Math.min(used, FREE_DAILY)}/{FREE_DAILY} today</span>
-            <Link href="/dashboard?tab=billing" className="btn-ghost-white">Upgrade Now</Link>
+            <span className="promo-title">{Math.min(used, FREE_DAILY)}/{FREE_DAILY} today</span>
           </div>
         </section>
 
