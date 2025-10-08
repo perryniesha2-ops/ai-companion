@@ -1,9 +1,8 @@
 // app/api/chat/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
-import { postgrestInsert } from '@/lib/rest';
 import { openai } from '@/lib/openai';
-import type { Database, Tables } from '@/types';
+import type { Database } from '@/types';
 
 const FREE_DAILY = 30;
 
@@ -14,226 +13,207 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-// Narrow row types for selects (prevents TS `never` issues)
-type ProfilePremiumRow = Pick<
-  Database['public']['Tables']['profiles']['Row'],
-  'is_premium'
->;
-type UsageCountRow = Pick<
-  Database['public']['Tables']['daily_usage']['Row'],
-  'count'
->;
-type MemRow = Pick<
-  Database['public']['Tables']['memories']['Row'],
-  'content'
->;
-type MsgRow = Pick<
-  Database['public']['Tables']['messages']['Row'],
-  'role' | 'content' | 'created_at'
->;
-type CompanionRow = {
-  system_prompt: string;
-  name: string;
-};
+type ProfilePremiumRow = Pick<Database['public']['Tables']['profiles']['Row'], 'is_premium'>;
+type UsageCountRow    = Pick<Database['public']['Tables']['daily_usage']['Row'], 'count'>;
+type MemRow           = Pick<Database['public']['Tables']['memories']['Row'], 'content'>;
+type CompanionRow     = Pick<Database['public']['Tables']['companions']['Row'], 'system_prompt' | 'name'>;
 
 export async function POST(req: NextRequest) {
-  const sb = supabaseServer();
-
-  // Body accepts optional conversation_id to resume a thread
-  const body = (await req.json()) as { message: string; conversation_id?: string };
-  const message = (body.message ?? '').trim();
-  const conversationId = body.conversation_id ?? null;
-  if (!message) return bad('Message required');
-
-  // Auth
-  const {
-    data: { session },
-    error: sessErr,
-  } = await sb.auth.getSession();
-  if (sessErr || !session) return bad('Unauthorized', 401);
-  const userId = session.user.id;
-
-  // If a conversation_id is supplied, ensure it belongs to the user
-  if (conversationId) {
-    const { data: conv, error: convErr } = await sb
-      .from('conversations')
-      .select('id, user_id, archived')
-      .eq('id', conversationId)
-      .maybeSingle();
-
-    if (convErr) return bad(convErr.message, 500);
-    if (!conv || conv.user_id !== userId || conv.archived) {
-      return bad('Conversation not found or not accessible.', 403);
-    }
-  }
-
-  // Premium & usage
-  const { data: profile, error: profErr } = await sb
-    .from('profiles')
-    .select('is_premium')
-    .eq('id', userId)
-    .returns<ProfilePremiumRow[]>() // explicit row type (array before .single/.maybeSingle)
-    .single();
-
-  if (profErr) return bad(profErr.message, 500);
-
-  const { data: usageRow, error: usageErr } = await sb
-    .from('daily_usage')
-    .select('count')
-    .eq('user_id', userId)
-    .eq('day', todayStr())
-    .returns<UsageCountRow[]>() // explicit row type
-    .maybeSingle();
-
-  if (usageErr && usageErr.code !== 'PGRST116') {
-    // ignore "row not found" errors (PostgREST code for no results)
-    return bad(usageErr.message, 500);
-  }
-
-  if (!profile?.is_premium) {
-    const used = usageRow?.count ?? 0;
-    if (used >= FREE_DAILY) {
-      return bad('Daily free limit reached. Upgrade to continue.', 402);
-    }
-  }
-
-  // Companion prompt (optional per-user companion)
-  const { data: companion } = await sb
-    .from('companions')
-    .select('system_prompt, name')
-    .eq('user_id', userId) // scope to user if your schema has user_id
-    .returns<CompanionRow[]>()
-    .maybeSingle();
-
-  const baseSystem =
-    companion?.system_prompt ??
-    'You are a warm, supportive companion. Keep replies to 2–4 sentences. Be empathetic.';
-
-  // Short memory context
-  const { data: mems } = await sb
-    .from('memories')
-    .select('content')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(5)
-    .returns<MemRow[]>();
-
-  const memoryBlurb = (mems ?? []).map((m) => `• ${m.content}`).join('\n');
-  const memoryLine = memoryBlurb ? `\nThese user facts may help:\n${memoryBlurb}` : '';
-
-  // Recent history for the conversation (or user-wide if no cid)
-  const msgQuery = sb
-    .from('messages')
-    .select('role, content, created_at')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(12);
-
-  const { data: recent } = conversationId
-    ? await msgQuery.eq('conversation_id', conversationId).returns<MsgRow[]>()
-    : await msgQuery.returns<MsgRow[]>();
-
-  const history = (recent ?? []).reverse();
-
-  // --- Generate with OpenAI Responses API ---
-  const sysContent = baseSystem + memoryLine;
-  const input = [
-    { role: 'system' as const, content: sysContent },
-    ...history.map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content })),
-    { role: 'user' as const, content: message },
-  ];
-
-  const completion = await openai.responses.create({
-    model: 'gpt-4o-mini',
-    input,
-  });
-
-  const text = completion.output_text?.trim() || '…';
-
-  // --- Persist: messages, usage, conversation updated_at ---
   try {
-    // Save user + assistant messages (with conversation_id if provided)
-    await postgrestInsert(
-      'messages',
-      [
-        { user_id: userId, role: 'user', content: message, conversation_id: conversationId },
-        { user_id: userId, role: 'assistant', content: text, conversation_id: conversationId },
-      ],
-      session.access_token
-    );
+    const sb = supabaseServer();
+    const { data: { session }, error: sessErr } = await sb.auth.getSession();
+    if (sessErr || !session) return bad('Unauthorized', 401);
+    const userId = session.user.id;
 
-    // Bump conversation updated_at if we’re in a thread
-    if (conversationId) {
-      await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/conversations?id=eq.${conversationId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            Authorization: `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-            Prefer: 'return=minimal',
-          },
-          body: JSON.stringify({ updated_at: new Date().toISOString() }),
-        }
-      );
+    const body = await req.json().catch(() => ({} as Record<string, unknown>));
+    const message = typeof body.message === 'string' ? body.message.trim() : '';
+    const conversationId =
+      typeof body.conversation_id === 'string' && body.conversation_id
+        ? body.conversation_id
+        : null;
+
+    if (!message) return bad('Message required');
+
+    // 1) Premium + usage check
+    const [{ data: profile, error: profErr }, { data: usageRow, error: usageErr }] = await Promise.all([
+      sb.from('profiles')
+        .select('is_premium')
+        .eq('id', userId)
+        .returns<ProfilePremiumRow[]>()
+        .single(),
+      sb.from('daily_usage')
+        .select('count')
+        .eq('user_id', userId)
+        .eq('day', todayStr())
+        .returns<UsageCountRow[]>()
+        .maybeSingle(),
+    ]);
+    if (profErr) return bad(profErr.message, 500);
+    if (usageErr && usageErr.code !== 'PGRST116') return bad(usageErr.message, 500);
+
+    if (!profile?.is_premium) {
+      const used = usageRow?.count ?? 0;
+      if (used >= FREE_DAILY) return bad('Daily free limit reached. Upgrade to continue.', 402);
     }
 
-    // Increment daily usage (insert if not exists, else patch)
-    const day = todayStr();
+    // 2) Companion (filter by user!)
+    const { data: companion, error: compErr } = await sb
+      .from('companions')
+      .select('system_prompt, name')
+      .eq('user_id', userId)
+      .returns<CompanionRow[]>()
+      .maybeSingle();
+    if (compErr && compErr.code !== 'PGRST116') return bad(compErr.message, 500);
+
+    const systemPrompt =
+      companion?.system_prompt ??
+      `You are a warm, supportive companion. Keep replies to 2–4 sentences.`;
+
+    // 3) Memories summary (optional)
+    const { data: mems } = await sb
+      .from('memories')
+      .select('content')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(5)
+      .returns<MemRow[]>();
+    const memoryBlurb = (mems ?? []).map((m) => `• ${m.content}`).join('\n');
+    const memoryLine = memoryBlurb ? `\nThese user facts may help:\n${memoryBlurb}` : '';
+
+    // 4) Short history (optional). If you want per-conversation context, keep the filter.
+    let msgQ = sb
+      .from('messages')
+      .select('role, content')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(12);
+    if (conversationId) msgQ = msgQ.eq('conversation_id', conversationId);
+    const { data: recent } = await msgQ;
+    const history = (recent ?? []).reverse()
+      .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+      .join('\n');
+
+    // 5) OpenAI – use Responses API with a single `input` string
+    const prompt =
+      `${systemPrompt}${memoryLine}\n\n` +
+      (history ? `Recent messages:\n${history}\n\n` : '') +
+      `User: ${message}\nAssistant:`;
+
+    let text = '…';
     try {
-      await postgrestInsert(
-        'daily_usage',
-        { user_id: userId, day, count: 1 },
-        session.access_token
-      );
-    } catch {
-      await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/daily_usage?user_id=eq.${userId}&day=eq.${day}`,
+      const r = await openai.responses.create({
+        model: 'gpt-4o-mini',
+        input: prompt,
+        temperature: 0.7,
+      });
+      text = (r.output_text ?? '…').trim();
+    } catch (apiErr) {
+      console.error('OpenAI error:', apiErr);
+      return bad('AI is momentarily unavailable. Please try again.', 502);
+    }
+
+    // 6) Save messages + increment usage via PostgREST (raw fetch avoids TS generic pain)
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const token = session.access_token;
+
+    // a) Save messages (user + assistant)
+    {
+      const payload = [
         {
+          user_id: userId,
+          role: 'user',
+          content: message,
+          conversation_id: conversationId, // null is ok
+        },
+        {
+          user_id: userId,
+          role: 'assistant',
+          content: text,
+          conversation_id: conversationId,
+        },
+      ];
+      const res = await fetch(`${url}/rest/v1/messages`, {
+        method: 'POST',
+        headers: {
+          apikey: anon,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Prefer: 'return=minimal',
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        console.error('Save messages failed:', j);
+        return bad('Failed to save messages', 500);
+      }
+    }
+
+    // b) Increment daily_usage (requires unique constraint on (user_id, day))
+    {
+      const day = todayStr();
+      // try single-request upsert (merge duplicates)
+      const res = await fetch(`${url}/rest/v1/daily_usage`, {
+        method: 'POST',
+        headers: {
+          apikey: anon,
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates,return=minimal',
+        },
+        body: JSON.stringify({ user_id: userId, day, count: (usageRow?.count ?? 0) + 1 }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        console.warn('daily_usage upsert failed, falling back to PATCH:', j);
+        await fetch(`${url}/rest/v1/daily_usage?user_id=eq.${userId}&day=eq.${day}`, {
           method: 'PATCH',
           headers: {
-            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-            Authorization: `Bearer ${session.access_token}`,
+            apikey: anon,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
             Prefer: 'return=minimal',
           },
           body: JSON.stringify({ count: (usageRow?.count ?? 0) + 1 }),
-        }
-      );
+        });
+      }
     }
 
-    // Lightweight memory extraction (optional)
-    const memoryResp = await openai.responses.create({
-      model: 'gpt-4o-mini',
-      input: [
-        {
-          role: 'system',
-          content:
-            'Extract any enduring personal fact from the user message in one concise sentence, or reply "none".',
-        },
-        { role: 'user', content: message },
-      ],
-      temperature: 0.2,
-    });
-
-    const extracted = memoryResp.output_text?.trim() ?? 'none';
-    if (extracted.toLowerCase() !== 'none') {
-      await postgrestInsert(
-        'memories',
-        {
-          user_id: userId,
-          content: extracted,
-          importance: 3,
-          // optionally associate with conversation:
-          conversation_id: conversationId ?? null,
-        } as Partial<Tables<'memories'>>, // keep REST helper happy
-        session.access_token
-      );
+    // c) Quick memory extraction (best-effort)
+    try {
+      const mem = await openai.responses.create({
+        model: 'gpt-4o-mini',
+        input:
+          `Extract an enduring personal fact from this user message in one short sentence, ` +
+          `or reply "none". Message: ${message}`,
+        temperature: 0.2,
+      });
+      const extracted = (mem.output_text || '').trim();
+      if (extracted && extracted.toLowerCase() !== 'none') {
+        await fetch(`${url}/rest/v1/memories`, {
+          method: 'POST',
+          headers: {
+            apikey: anon,
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=minimal',
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            content: extracted,
+            importance: 3,
+            conversation_id: conversationId, // keep the thread context if you added this column
+          }),
+        });
+      }
+    } catch (e) {
+      console.warn('memory extraction skipped:', e);
     }
+
+    return NextResponse.json({ text });
   } catch (e) {
-    return bad((e as Error).message || 'Failed to save', 500);
+    console.error('/api/chat fatal:', e);
+    return bad('Unexpected server error', 500);
   }
-
-  return NextResponse.json({ text });
 }

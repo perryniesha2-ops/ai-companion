@@ -556,3 +556,14 @@ fieldset{ border:0; margin:0; padding:0 }
 .switch::after{ content:""; position:absolute; top:2px; left:2px; width:22px; height:22px; border-radius:999px; background:#fff; box-shadow:var(--shadow-sm); transition:transform .18s ease; }
 .switch.is-on{ background:linear-gradient(90deg, var(--grad-from), var(--grad-to)); border-color:transparent; }
 .switch.is-on::after{ transform:translateX(20px); }
+
+.dropdown-menu{ background-color:#f7f1ff; /* Primary blue color */
+  color: #7c3aed;             /* White text */
+  padding: 10px 20px;         /* Vertical and horizontal padding */
+  font-size: 16px;            /* Readable text size */
+  font-weight: 600;           /* Semi-bold font */
+  border: none;               /* No border */
+  border-radius: 5px;         /* Rounded corners */
+  cursor: pointer;            /* Pointer on hover */
+  transition: background-color 0.3s ease, transform 0.2s ease; /* Smooth hover transitions */
+  }
