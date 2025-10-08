@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation';
 import { supabaseRSC } from '@/lib/supabase-server';
 import type { Database } from '@/types';
 import DashboardTabs, { OverviewData } from '@/components/dashboard/DashboardTabs';
+import Signout from '@/components/menus/Signout';
+
 
 const FREE_DAILY = 40;
 
@@ -63,6 +65,10 @@ function streakFromDates(stamps: string[]) {
   }
   return s;
 }
+
+
+ 
+
 
 export default async function DashboardPage({
   searchParams,
@@ -160,9 +166,13 @@ const { data: { user } } = await sb.auth.getUser();
             <div className="avatar"><span className="heart">♡</span></div>
             <div className="dash-title">
               <div className="name">Dashboard</div>
+
               <div className="muted small">{user.email}</div>
             </div>
           </div>
+           <div className="promo-right ml-auto">
+                  <Signout />
+                  </div>
         </header>
 
         {/* Compact promo */}

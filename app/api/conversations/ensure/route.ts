@@ -1,100 +1,70 @@
 // app/api/conversations/ensure/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
-import type { ConversationsRow, TablesInsert } from '@/types';
+import type { Database } from '@/types';
 
-type Body = { companion_id?: string | null };
+type ConvRow = Database['public']['Tables']['conversations']['Row'];
+type ConvInsert = Database['public']['Tables']['conversations']['Insert'];
+type ConvId = Pick<ConvRow, 'id'>;
 
-export async function POST(req: Request) {
-  const sb = supabaseServer();
+function bad(message: string, status = 400) {
+  return NextResponse.json({ error: message }, { status });
+}
 
-  const {
-    data: { user },
-    error: authErr,
-  } = await sb.auth.getUser();
-
-  if (authErr || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  let companionId: string | null = null;
+export async function POST(req: NextRequest) {
   try {
-    const parsed = (await req.json()) as Body;
-    companionId = parsed?.companion_id ?? null;
-  } catch {
-    // ignore bad/empty JSON; treat as no companion filter
-  }
+    const sb = supabaseServer();
+    const { data: { user }, error: authErr } = await sb.auth.getUser();
+    if (authErr || !user) return bad('Unauthorized', 401);
 
-  // Try to reuse the most recent conversation for the user.
-  // If your schema has a 'companion_id' column, we filter by it.
-  // If not, we fall back to "latest conversation for user".
-  let existingId: string | null = null;
+    const body = (await req.json().catch(() => null)) as { companion_id?: string | null } | null;
+    if (!body) return bad('Invalid JSON');
+    const companionId = body.companion_id ?? null;
 
-  // Attempt WITH companion_id
-  if (companionId !== undefined) {
-    const { data: maybeExisting, error: findErr } = await sb
+    // Build the filterable query FIRST (no .returns() yet)
+    let query = sb
       .from('conversations')
       .select('id')
-      .eq('companion_id', companionId) // will error if column doesn't exist
-      .eq('user_id', user.id)
+      .eq('user_id', user.id);
+
+    query = companionId
+      ? query.eq('companion_id', companionId)
+      : query.is('companion_id', null);
+
+    // Now finish the query (order/limit) and resolve
+    const { data: existing, error: findErr } = await query
       .order('created_at', { ascending: false })
       .limit(1)
-      .returns<Pick<ConversationsRow, 'id'>[]>()
       .maybeSingle();
 
-    if (findErr?.code === '42703') {
-      // Column doesn't exist -> fall through to generic lookup
-    } else if (findErr) {
-      return NextResponse.json({ error: findErr.message }, { status: 500 });
-    } else if (maybeExisting?.id) {
-      existingId = maybeExisting.id;
+    if (findErr && findErr.code !== 'PGRST116') {
+      return bad(findErr.message, 500);
     }
-  }
 
-  // Fallback: just reuse the latest conversation for this user
-  if (!existingId) {
-    const { data: latest, error: latestErr } = await sb
+    if (existing?.id) {
+      return NextResponse.json({ id: (existing as ConvId).id, reused: true });
+    }
+
+    // Create a new conversation
+    const insertPayload: ConvInsert = {
+      user_id: user.id,
+      companion_id: companionId,
+      title: 'Chat',
+      archived: false,
+    };
+
+    const { data: created, error: insErr } = await sb
       .from('conversations')
+      .insert(insertPayload)
       .select('id')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .returns<Pick<ConversationsRow, 'id'>[]>()
-      .maybeSingle();
+      .single();
 
-    if (latestErr && latestErr.code !== 'PGRST116') {
-      return NextResponse.json({ error: latestErr.message }, { status: 500 });
+    if (insErr || !created) {
+      return bad(insErr?.message || 'Failed to create conversation', 500);
     }
-    if (latest?.id) {
-      existingId = latest.id;
-    }
+
+    return NextResponse.json({ id: (created as ConvId).id, reused: false });
+  } catch (e) {
+    return bad((e as Error).message || 'Internal error', 500);
   }
-
-  if (existingId) {
-    return NextResponse.json({ id: existingId, reused: true });
-  }
-
-  // Create a new conversation.
-  // Only include fields that you *know* exist in your schema.
-  const insertPayload: TablesInsert<'conversations'> = {
-    user_id: user.id,
-    title: 'Chat',
-    // DO NOT add companion_id unless your Database types include it.
-  };
-
-  const { data: created, error: insErr } = await sb
-    .from('conversations')
-    .insert(insertPayload)
-    .select('id')
-    .returns<Pick<ConversationsRow, 'id'>[]>()
-    .single();
-
-  if (insErr || !created) {
-    return NextResponse.json(
-      { error: insErr?.message || 'Failed to create conversation' },
-      { status: 500 }
-    );
-  }
-
-  return NextResponse.json({ id: created.id, reused: false });
 }
