@@ -567,3 +567,36 @@ fieldset{ border:0; margin:0; padding:0 }
   cursor: pointer;            /* Pointer on hover */
   transition: background-color 0.3s ease, transform 0.2s ease; /* Smooth hover transitions */
   }
+
+
+
+  /* Modal */
+.modal-backdrop{
+  position:fixed; inset:0; display:grid; place-items:center; padding:16px;
+  background:rgba(0,0,0,.35); z-index:50;
+}
+.modal-card{
+  width:min(560px,100%); background:var(--card); border:1px solid var(--ring);
+  border-radius:var(--radius-xl); box-shadow:var(--shadow-lg);
+}
+.modal-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px; border-bottom:1px solid var(--ring);
+}
+.modal-title{ font-weight:800 }
+.modal-body{ padding:16px }
+.modal-foot{
+  display:flex; justify-content:flex-end; gap:8px;
+  padding:12px 16px; border-top:1px solid var(--ring);
+}
+.modal-x{
+  appearance:none; background:transparent; border:none; cursor:pointer;
+  font-size:22px; line-height:1; color:var(--muted);
+}
+
+/* optional */
+.row .btn { margin-top: 4px; }
+/* Right-align the last item in settings rows */
+.row > *:last-child { justify-self: end !important; }
+
+.push-right { justify-self: end !important; }

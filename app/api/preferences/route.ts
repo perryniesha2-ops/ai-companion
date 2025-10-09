@@ -7,7 +7,50 @@ type Body = Partial<{
   weekly_summary: boolean;
   milestone_celebrations: boolean;
   marketing_emails: boolean;
+
+  daily_checkin_time: string;  // "HH:mm"
+  daily_checkin_days: string;  // "mon,tue,wed,thu,fri"
+  weekly_summary_time: string; // "HH:mm"
+  weekly_summary_day: string;  // "sun"
+  timezone: string;            // IANA TZ
+  channel_email: boolean;
+  channel_inapp: boolean;
 }>;
+
+// Defaults used when INSERTing a brand-new row
+const DEFAULTS: Required<Omit<Body, never>> = {
+  daily_checkin: true,
+  weekly_summary: true,
+  milestone_celebrations: true,
+  marketing_emails: false,
+
+  daily_checkin_time: '09:00',
+  daily_checkin_days: 'mon,tue,wed,thu,fri',
+  weekly_summary_time: '17:00',
+  weekly_summary_day: 'sun',
+  timezone: 'UTC',
+  channel_email: true,
+  channel_inapp: true,
+};
+
+export async function GET() {
+  const sb = supabaseServer();
+  const { data: { user }, error } = await sb.auth.getUser();
+  if (error || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { data, error: selErr } = await sb
+    .from('preferences')
+    .select('*')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (selErr && selErr.code !== 'PGRST116') {
+    return NextResponse.json({ error: selErr.message }, { status: 500 });
+  }
+
+  // If no row yet, return ephemeral defaults (don’t create here)
+  return NextResponse.json(data ?? { user_id: user.id, ...DEFAULTS });
+}
 
 export async function POST(req: Request) {
   const sb = supabaseServer();
@@ -17,49 +60,56 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const body = (await req.json()) as Body;
+  const incoming = (await req.json().catch(() => ({}))) as Body;
 
-  // Normalize to booleans (fallbacks here don’t matter much; we overwrite below)
-  const next = {
-    daily_checkin: !!body.daily_checkin,
-    weekly_summary: !!body.weekly_summary,
-    milestone_celebrations: !!body.milestone_celebrations,
-    marketing_emails: !!body.marketing_emails,
-    // If you want to stamp manually (optional; DB default also works)
-    updatedat: new Date().toISOString(),
+  // Build a minimal UPDATE payload with only defined keys
+  const allowedKeys = [
+    'daily_checkin',
+    'weekly_summary',
+    'milestone_celebrations',
+    'marketing_emails',
+    'daily_checkin_time',
+    'daily_checkin_days',
+    'weekly_summary_time',
+    'weekly_summary_day',
+    'timezone',
+    'channel_email',
+    'channel_inapp',
+  ] as const;
+
+  const updatePayload: Record<string, unknown> = {};
+  for (const k of allowedKeys) {
+    if (k in incoming && typeof (incoming as Record<string, unknown>)[k] !== 'undefined') {
+      updatePayload[k] = (incoming as Record<string, unknown>)[k];
+    }
+  }
+
+  // 1) Try UPDATE first (no-op if body empty, but cheap)
+  const { data: updRows, error: updErr } = await sb
+    .from('preferences')
+    .update(updatePayload)
+    .eq('user_id', user.id)
+    .select('user_id'); // returns [] if nothing updated
+
+  if (updErr) {
+    return NextResponse.json({ error: updErr.message }, { status: 500 });
+  }
+
+  if (updRows && updRows.length > 0) {
+    return NextResponse.json({ ok: true, mode: 'updated' });
+  }
+
+  // 2) No row existed — INSERT with defaults + any provided overrides
+  const insertPayload = {
+    user_id: user.id,
+    ...DEFAULTS,
+    ...incoming, // merge overrides from client (safe keys only in table)
   };
 
-  // Try UPDATE first
-  const { data: updRows, error: updErr } = await sb
-  .from('preferences')
-  .update({
-    daily_checkin: !!body.daily_checkin,
-    weekly_summary: !!body.weekly_summary,
-    milestone_celebrations: !!body.milestone_celebrations,
-    marketing_emails: !!body.marketing_emails,
-   // updatedat: new Date().toISOString(), // keep 'updatedat' spelling consistent with your DB
-  })
-  .eq('user_id', user.id)
-  .select('user_id'); // <— only once
-
-if (updErr) {
-  return NextResponse.json({ error: updErr.message }, { status: 500 });
-}
-
-  // If no row, INSERT
-  if (!updRows || updRows.length === 0) {
-  const { error: insErr } = await sb.from('preferences').insert({
-    user_id: user.id,
-    daily_checkin: !!body.daily_checkin,
-    weekly_summary: !!body.weekly_summary,
-    milestone_celebrations: !!body.milestone_celebrations,
-    marketing_emails: !!body.marketing_emails,
-  });
+  const { error: insErr } = await sb.from('preferences').insert(insertPayload);
   if (insErr) {
     return NextResponse.json({ error: insErr.message }, { status: 500 });
   }
-}
 
-return NextResponse.json({ ok: true });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, mode: 'inserted' });
 }

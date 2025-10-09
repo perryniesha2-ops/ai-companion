@@ -33,9 +33,9 @@ export type ProfileRow = {
 };
 
 export type ConversationRow = {
-  id: string;            // uuid
-  user_id: string;       // auth.users.id
-  companion_id: string | null; // optional relationship
+  id: string;                 // uuid
+  user_id: string;            // auth.users.id
+  companion_id: string | null;
   title: string | null;
   archived: boolean;
   created_at: string;
@@ -43,7 +43,7 @@ export type ConversationRow = {
 };
 
 export type MessageRow = {
-  id: string;                 // uuid (if your DB uses bigint, change to number)
+  id: string;                 // uuid (if DB uses bigint, change to number)
   user_id: string;
   conversation_id: string | null;
   role: ChatRole;             // 'user' | 'assistant'
@@ -73,6 +73,17 @@ export type PreferencesRow = {
   weekly_summary: boolean;
   milestone_celebrations: boolean;
   marketing_emails: boolean;
+
+  // scheduling & channels
+  daily_checkin_time: string;   // "HH:mm"
+  daily_checkin_days: string;   // "mon,tue,wed,thu,fri"
+  weekly_summary_time: string;  // "HH:mm"
+  weekly_summary_day: string;   // "sun"
+  timezone: string;             // IANA tz, e.g. "America/New_York"
+  channel_email: boolean;
+  channel_inapp: boolean;
+
+  updatedat: string;            // trigger-maintained timestamp
 };
 
 export type CompanionRow = {
@@ -87,9 +98,6 @@ export type CompanionRow = {
 };
 
 // ------------------------------------------------------------
-// Supabase Database types
-// ------------------------------------------------------------
-
 export type Database = {
   public: {
     Tables: {
@@ -111,7 +119,7 @@ export type Database = {
       conversations: {
         Row: ConversationRow;
         Insert: {
-          user_id: string;                 // required (keep explicit)
+          user_id: string;                 // keep explicit
           companion_id?: string | null;
           title?: string | null;
           archived?: boolean;
@@ -122,8 +130,8 @@ export type Database = {
       messages: {
         Row: MessageRow;
         Insert: Omit<MessageRow, 'id' | 'created_at'> & {
-          id?: string;          // let DB default if you have uuid default
-          created_at?: string;  // let DB default now()
+          id?: string;          // allow DB default if set to gen_random_uuid()
+          created_at?: string;  // allow DB default now()
         };
         Update: Partial<Omit<MessageRow, 'id'>>;
       };
@@ -151,8 +159,16 @@ export type Database = {
           weekly_summary?: boolean;
           milestone_celebrations?: boolean;
           marketing_emails?: boolean;
+
+          daily_checkin_time?: string;
+          daily_checkin_days?: string;
+          weekly_summary_time?: string;
+          weekly_summary_day?: string;
+          timezone?: string;
+          channel_email?: boolean;
+          channel_inapp?: boolean;
         };
-        Update: Partial<Omit<PreferencesRow, 'user_id'>>;
+        Update: Partial<Omit<PreferencesRow, 'user_id' | 'updatedat'>>;
       };
 
       companions: {
@@ -200,7 +216,7 @@ export type Tables<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Row'];
 
 export type TablesInsert<T extends keyof Database['public']['Tables']> =
-  Database['public']['Tables'] [T]['Insert'];
+  Database['public']['Tables'][T]['Insert'];
 
 export type TablesUpdate<T extends keyof Database['public']['Tables']> =
   Database['public']['Tables'][T]['Update'];
@@ -211,11 +227,10 @@ export type ConversationsRow = Tables<'conversations'>;
 export type MessagesRow = Tables<'messages'>;
 export type MemoriesRow = Tables<'memories'>;
 export type DailyUsageRow = Tables<'daily_usage'>;
-export type PreferencesRow2 = Tables<'preferences'>; // alternate alias if you like
+export type PreferencesRowAlias = Tables<'preferences'>;
 export type CompanionsRow = Tables<'companions'>;
 
-// Also handy:
+// Insert helpers
 export type PreferencesInsert = TablesInsert<'preferences'>;
 export type ConversationsInsert = TablesInsert<'conversations'>;
 export type MessagesInsert = TablesInsert<'messages'>;
-

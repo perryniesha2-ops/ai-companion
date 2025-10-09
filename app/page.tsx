@@ -52,7 +52,7 @@ export default function HomePage() {
       </section>
 
       {/* CTA */}
-      <Link href="/auth/signup" className="btn-grad" style={{ fontSize: 18, padding: '14px 28px' }}>
+      <Link href="/auth/login" className="btn-grad" style={{ fontSize: 18, padding: '14px 28px' }}>
         Get Started Free
       </Link>
     </main>

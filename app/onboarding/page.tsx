@@ -1,3 +1,4 @@
+// app/onboarding/page.tsx
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
@@ -10,10 +11,10 @@ type StyleKey  = 'deep' | 'casual' | 'supportive' | 'direct';
 type GoalKey   = 'growth' | 'companionship' | 'social' | 'support';
 
 const ENERGY: { key: EnergyKey; label: string; emoji: string; tone: Tone }[] = [
-  { key: 'playful',   label: 'Playful & Fun',         emoji: '✨', tone: 'funny' },
-  { key: 'calm',      label: 'Calm & Thoughtful',     emoji: '🌙', tone: 'professional' },
-  { key: 'energetic', label: 'Energetic & Motivating',emoji: '⚡', tone: 'friendly' },
-  { key: 'warm',      label: 'Warm & Caring',         emoji: '💛', tone: 'supportive' },
+  { key: 'playful',   label: 'Playful & Fun',          emoji: '✨', tone: 'funny' },
+  { key: 'calm',      label: 'Calm & Thoughtful',      emoji: '🌙', tone: 'professional' },
+  { key: 'energetic', label: 'Energetic & Motivating', emoji: '⚡', tone: 'friendly' },
+  { key: 'warm',      label: 'Warm & Caring',          emoji: '💛', tone: 'supportive' },
 ];
 
 const STYLE: { key: StyleKey; label: string; emoji: string; expertise: Expertise }[] = [
@@ -30,10 +31,13 @@ const GOALS: { key: GoalKey; label: string; emoji: string }[] = [
   { key: 'support',       label: 'Emotional support',    emoji: '❤️' },
 ];
 
+const STORAGE_KEY = 'companion_onboarding';
+
 export default function OnboardingPage() {
   const router = useRouter();
   const params = useSearchParams();
-  const nextPath = params.get('next') || '/chat';
+  const sb = useMemo(() => supabaseBrowser(), []);
+  const nextPath = params.get('next') || '/dashboard';
 
   const [step, setStep] = useState(1);
   const [energy, setEnergy] = useState<EnergyKey | null>(null);
@@ -44,40 +48,53 @@ export default function OnboardingPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Ensure the profile row exists & require auth
+  // 1) Require auth, short-circuit if already onboarded, ensure profile exists
   useEffect(() => {
-    let stop = false;
+    let cancelled = false;
     (async () => {
-      const sb = supabaseBrowser();
       const { data: { session } } = await sb.auth.getSession();
       if (!session) {
         router.replace(`/auth/login?next=${encodeURIComponent('/onboarding')}`);
         return;
       }
-      // Prepare server (RPC ensure_profile) – include Bearer to be robust
-      await fetch('/api/onboarding', {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (stop) return;
-      // try to restore saved progress (optional)
-      const raw = localStorage.getItem('companion_onboarding');
-      if (raw) {
-        try {
-          const s = JSON.parse(raw);
-          if (s.energy) setEnergy(s.energy);
-          if (s.style) setStyle(s.style);
-          if (s.goal) setGoal(s.goal);
-          if (typeof s.name === 'string') setCompanionName(s.name);
-          if (typeof s.step === 'number') setStep(Math.min(4, Math.max(1, s.step)));
-        } catch {}
+
+      // If already onboarded, bounce to next
+      const { data: prof } = await sb
+        .from('profiles')
+        .select('onboarding_complete')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (!cancelled && prof?.onboarding_complete) {
+        router.replace(nextPath);
+        return;
+      }
+
+      // Ensure profile row exists (ignore failures)
+      await fetch('/api/onboarding', { method: 'PUT', headers: { Authorization: `Bearer ${session.access_token}` } })
+        .catch(() => { /* noop */ });
+
+      // Restore local progress (optional)
+      if (!cancelled) {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          try {
+            const s = JSON.parse(raw);
+            if (s.energy) setEnergy(s.energy);
+            if (s.style) setStyle(s.style);
+            if (s.goal) setGoal(s.goal);
+            if (typeof s.name === 'string') setCompanionName(s.name);
+            if (typeof s.step === 'number') setStep(Math.min(4, Math.max(1, s.step)));
+          } catch { /* ignore */ }
+        }
       }
     })();
-    return () => { stop = true; };
-  }, [router]);
+    return () => { cancelled = true; };
+  }, [sb, router, nextPath]);
 
+  // Persist progress
   useEffect(() => {
-    localStorage.setItem('companion_onboarding', JSON.stringify({
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
       energy, style, goal, name: companionName, step
     }));
   }, [energy, style, goal, companionName, step]);
@@ -91,19 +108,15 @@ export default function OnboardingPage() {
   }, [step, energy, style, goal, companionName]);
 
   async function finish() {
-    if (busy) return;
+    if (busy || !canNext) return;
     setBusy(true);
     setErr(null);
 
-    const tone: Tone =
-      ENERGY.find(e => e.key === energy)?.tone ?? 'friendly';
-    const expertise: Expertise =
-      STYLE.find(s => s.key === style)?.expertise ?? 'generalist';
-    const goalText =
-      GOALS.find(g => g.key === goal)?.label ?? 'Personal growth';
+    const tone: Tone = ENERGY.find(e => e.key === energy)?.tone ?? 'friendly';
+    const expertise: Expertise = STYLE.find(s => s.key === style)?.expertise ?? 'generalist';
+    const goalText = GOALS.find(g => g.key === goal)?.label ?? 'Personal growth';
 
     try {
-      const sb = supabaseBrowser();
       const { data: { session } } = await sb.auth.getSession();
       if (!session) {
         setBusy(false);
@@ -111,6 +124,7 @@ export default function OnboardingPage() {
         return;
       }
 
+      // Save & mark onboarding complete on the server
       const res = await fetch('/api/onboarding', {
         method: 'POST',
         headers: {
@@ -118,7 +132,7 @@ export default function OnboardingPage() {
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          nickname: companionName.trim(), // store as nickname
+          nickname: companionName.trim(),
           tone,
           expertise,
           goal: goalText,
@@ -130,9 +144,9 @@ export default function OnboardingPage() {
         throw new Error(j.error || 'Failed to save onboarding');
       }
 
-      // optional UX cookie for gating
+      // Clear local state and move on
+      localStorage.removeItem(STORAGE_KEY);
       document.cookie = `onboarding_done=1; path=/; max-age=${60*60*24*365}`;
-      localStorage.removeItem('companion_onboarding');
       router.replace(nextPath);
     } catch (e) {
       setErr((e as Error).message);
