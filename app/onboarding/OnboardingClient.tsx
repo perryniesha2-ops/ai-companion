@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useMemo as useMemo2 } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabaseBrowser } from '@/lib/supabase-browser';
 import type { Tone, Expertise } from '@/types';
@@ -47,7 +47,7 @@ export default function OnboardingClient() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  // Require auth, short-circuit if onboarded, ensure profile exists
+  // Require auth, ensure profile, restore progress, and skip if already onboarded
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -68,11 +68,8 @@ export default function OnboardingClient() {
         return;
       }
 
-      // ensure profile exists (ignore failures)
-      await fetch('/api/onboarding', {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      }).catch(() => {});
+      await fetch('/api/onboarding', { method: 'PUT', headers: { Authorization: `Bearer ${session.access_token}` } })
+        .catch(() => {});
 
       if (!cancelled) {
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -91,20 +88,18 @@ export default function OnboardingClient() {
     return () => { cancelled = true; };
   }, [sb, router, nextPath]);
 
-  // Persist progress
+  // Persist progress locally
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       energy, style, goal, name: companionName, step
     }));
   }, [energy, style, goal, companionName, step]);
 
-  const canNext = useMemo2(() => {
-    if (step === 1) return !!energy;
-    if (step === 2) return !!style;
-    if (step === 3) return !!goal;
-    if (step === 4) return companionName.trim().length > 0;
-    return false;
-  }, [step, energy, style, goal, companionName]);
+  const canNext =
+    (step === 1 && !!energy) ||
+    (step === 2 && !!style)  ||
+    (step === 3 && !!goal)   ||
+    (step === 4 && companionName.trim().length > 0);
 
   async function finish() {
     if (busy || !canNext) return;
@@ -154,7 +149,6 @@ export default function OnboardingClient() {
   return (
     <main className="auth-shell">
       <div className="auth-card" style={{ width: 'min(820px, 100%)' }}>
-        {/* Progress */}
         <div className="progress">
           {[1,2,3,4].map(n => (
             <span key={n} className={`progress-seg ${step>=n ? 'is-full' : ''}`} />
@@ -162,7 +156,6 @@ export default function OnboardingClient() {
         </div>
         <p className="muted small center" style={{ marginTop: 6 }}>Step {step} of 4</p>
 
-        {/* Step 1 */}
         {step === 1 && (
           <section style={{ marginTop: 10 }}>
             <h2 className="auth-title" style={{ fontSize: 26 }}>
@@ -184,7 +177,6 @@ export default function OnboardingClient() {
           </section>
         )}
 
-        {/* Step 2 */}
         {step === 2 && (
           <section style={{ marginTop: 10 }}>
             <h2 className="auth-title" style={{ fontSize: 26 }}>
@@ -206,7 +198,6 @@ export default function OnboardingClient() {
           </section>
         )}
 
-        {/* Step 3 */}
         {step === 3 && (
           <section style={{ marginTop: 10 }}>
             <h2 className="auth-title" style={{ fontSize: 26 }}>
@@ -228,7 +219,6 @@ export default function OnboardingClient() {
           </section>
         )}
 
-        {/* Step 4 */}
         {step === 4 && (
           <section style={{ marginTop: 10 }}>
             <h2 className="auth-title" style={{ fontSize: 26 }}>
@@ -251,7 +241,6 @@ export default function OnboardingClient() {
 
         {err && <p className="auth-error" role="alert">{err}</p>}
 
-        {/* Controls */}
         <div className="hstack" style={{ justifyContent: 'space-between', marginTop: 14 }}>
           <button
             className="btn btn--outline"

@@ -15,7 +15,3 @@ export default function Page() {
     </Suspense>
   );
 }
-// This is a client component because it uses useState and useEffect
-// and it needs to be rendered immediately without waiting for server-side rendering
-// to complete. This is important for the onboarding flow, which should be as fast
-// and responsive as possible.
