@@ -7,7 +7,7 @@ import DashboardTabs, { OverviewData } from '@/components/dashboard/DashboardTab
 import Signout from '@/components/menus/Signout';
 
 
-const FREE_DAILY = 40;
+const FREE_DAILY = 30;
 
 type OnbRow = {
   onboarding_complete: boolean | null;

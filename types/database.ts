@@ -57,8 +57,14 @@ export type MemoryRow = {
   conversation_id: string | null;
   companion_id: string | null;
   content: string;
-  importance: number;
   created_at: string;
+
+  // vector + metadata
+  embedding: number[] | null;         // pgvector; send as number[] via REST
+  kind: 'semantic' | 'episodic';
+  category: string | null;            // e.g., 'personal', 'work', ...
+  importance: number;                 // 1..5
+  tags: string[];                     // text[] in PG
 };
 
 export type UsageRow = {
@@ -87,7 +93,7 @@ export type PreferencesRow = {
 };
 
 export type CompanionRow = {
-  user_id: string;         // owner
+  user_id: string;         // owner (PK or unique)
   name: string;
   tone: Tone;
   expertise: Expertise;
@@ -98,6 +104,9 @@ export type CompanionRow = {
 };
 
 // ------------------------------------------------------------
+// Supabase Database types
+// ------------------------------------------------------------
+
 export type Database = {
   public: {
     Tables: {
@@ -141,6 +150,7 @@ export type Database = {
         Insert: Omit<MemoryRow, 'id' | 'created_at'> & {
           id?: string;
           created_at?: string;
+          // embedding: number[] is allowed via REST payload
         };
         Update: Partial<Omit<MemoryRow, 'id'>>;
       };

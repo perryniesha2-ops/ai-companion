@@ -293,17 +293,28 @@ fieldset{ border:0; margin:0; padding:0 }
 @media (prefers-color-scheme: dark){
   :root{
     --bg:#0b0b0f;
-    --text:#f3f4f6;
+    --text:#7c3aed;;
     --muted:#9aa0a6;
     --ring:rgba(255,255,255,.1);
     --card:rgba(16,16,20,.9);
   }
+  
   body{ background: radial-gradient(1200px 800px at 50% -10%, #2a1436, #0b0b0f 60%) fixed; }
   .tab{ background:#141419; color:var(--text) }
   .auth-card, .panel, .card{ background:var(--card); border-color:var(--ring) }
   .field-wrap{ background:#0f0f14; border-color:var(--ring) }
   .input, .textarea{ color:var(--text) }
-  .bubble-body{ background:#141419; border-color:rgba(255,255,255,.06) }
+  .bubble-body{ background:#e2cce0; border-color:rgba(255,255,255,.06) }
+  .chat-main{ flex:1; overflow:auto; background:#141419 }
+  .bubble--user .bubble-body{
+  background:#7c3aed;
+  color:#e4b6b6; border:none;
+ }
+.btn{
+  appearance:none; border:1px solid var(--ring); border-radius:999px;
+  padding:10px 16px; background:#7c3aed; cursor:pointer;
+
+}
 }
 
 /* ---------- Skeleton ---------- */
@@ -389,10 +400,7 @@ fieldset{ border:0; margin:0; padding:0 }
   .topic-pct { justify-self: end; }
 
 }
-.spark{display:flex;gap:28px;justify-content:space-between;padding:14px 8px}
-.spark-col{display:flex;flex-direction:column;align-items:center;gap:6px}
-.spark-bar{width:18px;border-radius:999px;background:linear-gradient(180deg,var(--grad-from),var(--grad-to))}
-.spark-day{font-size:12px;color:var(--muted)}
+
 
 /* Constrain page content */
 .dash-container { width: 100%; max-width: var(--maxw); margin: 0 auto; }
@@ -550,12 +558,6 @@ fieldset{ border:0; margin:0; padding:0 }
   text-decoration: none;      /* Remove underline for links if used */
 }
 .btn-danger:hover { background: rgba(239,68,68,.06); }
-
-/* optional refinements */
-.switch { width: 46px; height: 26px; border-radius: 999px; border:1px solid var(--ring); background:#eef2f7; position:relative; }
-.switch::after{ content:""; position:absolute; top:2px; left:2px; width:22px; height:22px; border-radius:999px; background:#fff; box-shadow:var(--shadow-sm); transition:transform .18s ease; }
-.switch.is-on{ background:linear-gradient(90deg, var(--grad-from), var(--grad-to)); border-color:transparent; }
-.switch.is-on::after{ transform:translateX(20px); }
 
 .dropdown-menu{ background-color:#f7f1ff; /* Primary blue color */
   color: #7c3aed;             /* White text */

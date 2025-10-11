@@ -133,6 +133,9 @@ function SignupInner() {
             Sign in
           </Link>
         </p>
+        <p className="auth-alt" style={{ marginTop: 10 }}>
+  Trouble? <Link className="link" href="/auth/help">Get help</Link>
+</p>
       </form>
     </main>
   );

@@ -103,7 +103,11 @@ function LoginInner() {
             {err}
           </p>
         )}
-
+<p className="auth-alt" style={{ marginTop: 10 }}>
+  <Link className="link" href="/auth/forgot">Forgot password?</Link>
+  <span className="sep"> • </span>
+  <Link className="link" href="/auth/help">Need help?</Link>
+</p>
         <button className="btn-grad" disabled={!canSubmit} style={{ marginTop: 12 }}>
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
