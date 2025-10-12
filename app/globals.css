@@ -299,7 +299,7 @@ fieldset{ border:0; margin:0; padding:0 }
     --card:rgba(16,16,20,.9);
   }
   
-  body{ background: radial-gradient(1200px 800px at 50% -10%, #2a1436, #0b0b0f 60%) fixed; }
+  body{ background: radial-gradient(1200px 800px at 50% -10%, #0b0b0f, #0b0b0f 60%) fixed; }
   .tab{ background:#141419; color:var(--text) }
   .auth-card, .panel, .card{ background:var(--card); border-color:var(--ring) }
   .field-wrap{ background:#0f0f14; border-color:var(--ring) }
@@ -328,13 +328,14 @@ fieldset{ border:0; margin:0; padding:0 }
   border:none; color:#fff;
   background:linear-gradient(90deg, var(--grad-from), var(--grad-to));
 }
-
-.chip-link{
-  border:1px solid var(--ring); background:#fff; padding:8px 12px; border-radius:999px; cursor:pointer;
+.input--pill{
+  border:1px solid var(--ring); border-radius:999px; background:#0b0b0f;
+  padding:12px 14px; width:100%; outline:none; min-height:44px; resize:none;
 }
-.chip-link:hover{ background:#fff1f5;}
-.chip-link.danger{ color:#b91c1c; }
-
+.chat-footer{
+  border-top:1px solid rgba(0,0,0,.06); background:#0b0b0f; padding:10px 12px;
+  display:flex; flex-direction:column; gap:8px;
+}
 }
 
 /* ---------- Skeleton ---------- */
