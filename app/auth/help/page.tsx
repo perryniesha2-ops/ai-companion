@@ -1,8 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
+import SupportModal from '@/components/SupportModal';
+
 
 export default function AuthHelpPage() {
+    const [open, setOpen] = useState(false);
+  
   return (
     <main className="auth-shell">
       <div className="auth-card">
@@ -22,10 +27,12 @@ export default function AuthHelpPage() {
 
         <div className="hstack" style={{ gap: 8, flexWrap: 'wrap' }}>
           <Link className="btn" href="/auth/login">Back to sign in</Link>
-          <a className="btn btn--outline" href="mailto:support@codesmithapp.com">Email support</a>
+          <a className="btn btn--outline" onClick={() => setOpen(true)}>Email support</a>
           <a className="btn btn--outline" href="https://status.supabase.com" target="_blank" rel="noreferrer">Service status</a>
         </div>
       </div>
+            <SupportModal open={open} onClose={() => setOpen(false)} />
+
     </main>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Modal from '@/components/ui/Modal';
+import SettingsHelpRow from '@/components/SettingsHelpRow';
+
 
 export type Prefs = {
   daily_checkin: boolean;
@@ -300,7 +302,14 @@ export default function SettingsPanel({
           </div>
         </div>
       </div>
-
+ <section className="panel">
+        <h3 className="kpi-title" style={{ fontSize: 16 }}>Need Help?</h3>
+      {/* ...your other rows... */}
+      <div className="row-list">
+        {/* Help */}
+        <SettingsHelpRow />
+      </div>
+    </section>
       {/* Weekly Summary Modal */}
       <Modal
         open={showWeeklyModal}
@@ -373,5 +382,7 @@ export default function SettingsPanel({
         )}
       </Modal>
     </div>
+
+    
   );
 }

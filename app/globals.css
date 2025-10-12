@@ -310,11 +310,31 @@ fieldset{ border:0; margin:0; padding:0 }
   background:#7c3aed;
   color:#e4b6b6; border:none;
  }
-.btn{
-  appearance:none; border:1px solid var(--ring); border-radius:999px;
-  padding:10px 16px; background:#7c3aed; cursor:pointer;
-
+.btn {
+  background-color:#7c3aed; /* Primary blue color */
+  color: #fff;             /* White text */
+  padding: 10px 20px;         /* Vertical and horizontal padding */
+  font-size: 16px;            /* Readable text size */
+  font-weight: 600;           /* Semi-bold font */
+  border: none;               /* No border */
+  border-radius: 5px;         /* Rounded corners */
+  cursor: pointer;            /* Pointer on hover */
+  transition: background-color 0.3s ease, transform 0.2s ease; /* Smooth hover transitions */
+  text-align: center;         /* Center text */
+  display: inline-block;      /* Inline-block to respect dimensions */
+  text-decoration: none;      /* Remove underline for links if used */
 }
+.btn--gradient{
+  border:none; color:#fff;
+  background:linear-gradient(90deg, var(--grad-from), var(--grad-to));
+}
+
+.chip-link{
+  border:1px solid var(--ring); background:#fff; padding:8px 12px; border-radius:999px; cursor:pointer;
+}
+.chip-link:hover{ background:#fff1f5;}
+.chip-link.danger{ color:#b91c1c; }
+
 }
 
 /* ---------- Skeleton ---------- */
